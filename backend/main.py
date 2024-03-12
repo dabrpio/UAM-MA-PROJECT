@@ -19,12 +19,12 @@ app.add_middleware(
 
 
 @app.get("/")
-async def translate(text: str):
+async def translate(sourceLanguage: str, targetLanguage: str, text: str):
   completion = client.chat.completions.create(
     model="gpt-3.5-turbo",
     messages=[
       {"role": "system", "content": "You are a translator, skilled in translation between Polish and English languages."},
-      {"role": "user", "content": f"Translate the following text from English to Polish: {text}"}
+      {"role": "user", "content": f"Translate the following text from {sourceLanguage} to {targetLanguage}: {text}"}
     ]
   )
   return completion.choices[0].message.content

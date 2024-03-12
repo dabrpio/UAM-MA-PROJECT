@@ -1,16 +1,28 @@
 import { useState } from "react";
 
+enum Language {
+  POL = "Polish",
+  ENG = "English",
+}
+
 export const App = () => {
+  const [sourceLanguage, setSourceLanguage] = useState(Language.POL);
+  const [targetLanguage, setTargetLanguage] = useState(Language.ENG);
   const [sourceValue, setSourceValue] = useState("");
-  const [resultValue, setResultValue] = useState("");
+  const [targetValue, setTargetValue] = useState("");
 
   const handleTranslateButtonClick = async () => {
     if (sourceValue.trim().length > 0) {
-      const params = new URLSearchParams({ text: sourceValue }).toString();
+      const params = new URLSearchParams({
+        sourceLanguage,
+        targetLanguage,
+        text: sourceValue,
+      }).toString();
+
       await fetch(`${import.meta.env.VITE_BACKEND_URL}?${params}`)
         .then((res) => res.json())
         .then((data) => {
-          setResultValue(data as string);
+          setTargetValue(data as string);
         })
         .catch((error) => {
           console.error(error);
@@ -18,8 +30,16 @@ export const App = () => {
     }
   };
 
+  const toggleLanguages = () => {
+    setSourceLanguage(targetLanguage);
+    setTargetLanguage(sourceLanguage);
+  };
+
   return (
     <div className="container mx-auto flex flex-col items-center justify-center gap-4 p-4">
+      <button onClick={toggleLanguages} className="rounded border px-3 py-2">
+        {sourceLanguage} to {targetLanguage}
+      </button>
       <textarea
         value={sourceValue}
         onChange={(e) => {
@@ -34,9 +54,9 @@ export const App = () => {
         Translate
       </button>
       <textarea
-        value={resultValue}
+        value={targetValue}
         onChange={(e) => {
-          setResultValue(e.target.value);
+          setTargetValue(e.target.value);
         }}
         className="w-full rounded border border-gray-500 px-3 py-2"
       />
