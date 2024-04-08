@@ -10,20 +10,29 @@ export const App = () => {
   const [targetLanguage, setTargetLanguage] = useState(Language.ENG);
   const [sourceValue, setSourceValue] = useState("");
   const [targetValue, setTargetValue] = useState("");
+  const [fewShots, setFewShots] = useState<
+    { source: string; target: string }[]
+  >([]);
 
   const handleTranslateButtonClick = async () => {
     if (sourceValue.trim().length > 0) {
       const params = new URLSearchParams({
-        sourceLanguage,
-        targetLanguage,
+        source_language: sourceLanguage,
+        target_language: targetLanguage,
         text: sourceValue,
       }).toString();
 
       await fetch(`${import.meta.env.VITE_BACKEND_URL}?${params}`)
         .then((res) => res.json())
-        .then((data) => {
-          setTargetValue(data as string);
-        })
+        .then(
+          (data: {
+            translation: string;
+            few_shots: { source: string; target: string }[];
+          }) => {
+            setTargetValue(data.translation);
+            setFewShots(data.few_shots);
+          },
+        )
         .catch((error) => {
           console.error(error);
         });
@@ -60,6 +69,20 @@ export const App = () => {
         }}
         className="w-full rounded border border-gray-500 px-3 py-2"
       />
+      <table>
+        <thead>
+          <th className="px-3 py-2">Sentence</th>
+          <th className="px-3 py-2">Translation</th>
+        </thead>
+        <tbody>
+          {fewShots.map((shots, index) => (
+            <tr key={index}>
+              <td className="px-3 py-2">{shots.source}</td>
+              <td className="px-3 py-2">{shots.target}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
