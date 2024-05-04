@@ -9,7 +9,8 @@ export const App = () => {
   const [sourceLanguage, setSourceLanguage] = useState(Language.POL);
   const [targetLanguage, setTargetLanguage] = useState(Language.ENG);
   const [sourceValue, setSourceValue] = useState("");
-  const [targetValue, setTargetValue] = useState("");
+  const [fewShotsValue, setFewShotsValue] = useState("");
+  const [zeroShotsValue, setZeroShotsValue] = useState("");
   const [fewShots, setFewShots] = useState<
     { source: string; target: string }[]
   >([]);
@@ -26,10 +27,12 @@ export const App = () => {
         .then((res) => res.json())
         .then(
           (data: {
-            translation: string;
+            zero_shots_translation: string;
+            few_shots_translation: string;
             few_shots: { source: string; target: string }[];
           }) => {
-            setTargetValue(data.translation);
+            setZeroShotsValue(data.zero_shots_translation);
+            setFewShotsValue(data.few_shots_translation);
             setFewShots(data.few_shots);
           },
         )
@@ -62,27 +65,46 @@ export const App = () => {
       >
         Translate
       </button>
-      <textarea
-        value={targetValue}
-        onChange={(e) => {
-          setTargetValue(e.target.value);
-        }}
-        className="w-full rounded border border-gray-500 px-3 py-2"
-      />
-      <table>
-        <thead>
-          <th className="px-3 py-2">Sentence</th>
-          <th className="px-3 py-2">Translation</th>
-        </thead>
-        <tbody>
-          {fewShots.map((shots, index) => (
-            <tr key={index}>
-              <td className="px-3 py-2">{shots.source}</td>
-              <td className="px-3 py-2">{shots.target}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="flex w-full gap-x-4">
+        <div className="flex flex-1 flex-col">
+          <p>With few-shots learing</p>
+          <textarea
+            value={fewShotsValue}
+            onChange={(e) => {
+              setFewShotsValue(e.target.value);
+            }}
+            className="w-full rounded border border-gray-500 px-3 py-2"
+          />
+          {fewShots.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th className="px-3 py-2">Sentence</th>
+                  <th className="px-3 py-2">Translation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fewShots.map((shots, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">{shots.source}</td>
+                    <td className="px-3 py-2">{shots.target}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="flex-1">
+          <p>With zero-shots learing</p>
+          <textarea
+            value={zeroShotsValue}
+            onChange={(e) => {
+              setZeroShotsValue(e.target.value);
+            }}
+            className="w-full rounded border border-gray-500 px-3 py-2"
+          />
+        </div>
+      </div>
     </div>
   );
 };

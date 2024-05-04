@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 OPENAI_API_KEY=getenv('OPENAI_API_KEY')
+MODEL = "gpt-3.5-turbo"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 app = FastAPI()
@@ -18,6 +19,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def make_openai_api_call(context: str, prompt: str):
+  return client.chat.completions.create(
+      model=MODEL,
+      messages=[
+        { "role": "system", "content": context },
+        { "role": "user", "content": prompt }
+      ]
+    )
 
 Language = Literal['Polish','English']
 
@@ -45,23 +55,19 @@ async def translate(source_language: Language, target_language: Language, text: 
     })
   key_value_strings = [f"{obj['source'].strip()} => {obj['target'].strip()}" for obj in dictionary]
   shots = '\n'.join(key_value_strings)
-  prompt = f"""
-Complete the translations of the following sentences from {source_language} to {target_language}:
+
+  context = f"You are a translator, skilled in translation between {source_language} and {target_language} languages."
+  zero_shots_translation = make_openai_api_call(context, f"Translate {text} from {source_language} to {target_language}.")
+  few_shots_translation = make_openai_api_call(context, 
+f"""
+Complete the translations of the following sentences from {source_language} to {target_language} taking into consideration already translated examples:
 {shots}
 {text} =>
 """
-  
-  completion = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-      {"role": "system", "content": "You are a translator, skilled in translation between Polish and English languages."},
-      {
-        "role": "user", 
-        "content": prompt
-      }
-    ]
   )
+  
   return {
-    'translation': completion.choices[0].message.content,
+    'zero_shots_translation': zero_shots_translation.choices[0].message.content,
+    'few_shots_translation': few_shots_translation.choices[0].message.content,
     'few_shots': dictionary
   }
