@@ -71,6 +71,7 @@ interface TranslatioFormProps {
 
 export function TranslationForm({ setResults }: TranslatioFormProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,9 +82,9 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
       shots: "",
     },
   });
-  //   const {setValue} = form
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
     const params = new URLSearchParams(values).toString();
     fetch(`${import.meta.env.VITE_BACKEND_URL}?${params}`)
       .then((res) => res.json())
@@ -92,6 +93,9 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
       })
       .catch((error) => {
         console.error(error);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   }
 
@@ -115,6 +119,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                         {...field}
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        disabled={isLoading}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select" />
@@ -143,6 +148,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                         {...field}
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        disabled={isLoading}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select" />
@@ -170,9 +176,9 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                       <Input
                         placeholder="Enter number"
                         type="number"
-                        // defaultValue={field.value}'
                         {...field}
                         onChange={field.onChange}
+                        disabled={isLoading}
                       />
                     </FormControl>
                     <FormMessage />
@@ -187,7 +193,12 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                 <FormItem className="col-span-9 row-span-3">
                   <FormLabel>Text</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Enter text" rows={8} {...field} />
+                    <Textarea
+                      placeholder="Enter text"
+                      rows={8}
+                      disabled={isLoading}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -196,11 +207,14 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
           </CardContent>
           <CardFooter className="flex justify-between">
             <div className="flex gap-x-2">
-              <Button type="submit">Translate!</Button>
+              <Button type="submit" disabled={isLoading}>
+                Translate!
+              </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsSheetOpen(true)}
+                disabled={isLoading}
               >
                 Load example
               </Button>
@@ -210,6 +224,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                 type="button"
                 variant="outline"
                 onClick={() => form.reset()}
+                disabled={isLoading}
               >
                 Reset form
               </Button>
@@ -217,6 +232,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                 type="button"
                 variant="outline"
                 onClick={() => setResults(null)}
+                disabled={isLoading}
               >
                 Reset results
               </Button>
