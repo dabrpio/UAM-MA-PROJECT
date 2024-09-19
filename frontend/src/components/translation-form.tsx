@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EXAMPLES } from "@/lib/contants";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { TranslationResult } from "./translation-result";
@@ -28,6 +30,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Input } from "./ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Textarea } from "./ui/textarea";
 
 const languageEnum = z.enum(["Polish", "English"]);
@@ -60,17 +63,25 @@ const formSchema = z
     return z.NEVER;
   });
 
+export type TranslationRequirements = z.infer<typeof formSchema>;
+
 interface TranslatioFormProps {
   setResults: React.Dispatch<React.SetStateAction<TranslationResult[] | null>>;
 }
 
 export function TranslationForm({ setResults }: TranslatioFormProps) {
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       text: "",
+      source_language: undefined,
+      target_language: undefined,
+      shots: "",
     },
   });
+  //   const {setValue} = form
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const params = new URLSearchParams(values).toString();
@@ -101,6 +112,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                     <FormLabel>Source language</FormLabel>
                     <FormControl>
                       <Select
+                        {...field}
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
@@ -128,6 +140,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                     <FormLabel>Target language</FormLabel>
                     <FormControl>
                       <Select
+                        {...field}
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
@@ -157,6 +170,8 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                       <Input
                         placeholder="Enter number"
                         type="number"
+                        // defaultValue={field.value}'
+                        {...field}
                         onChange={field.onChange}
                       />
                     </FormControl>
@@ -180,12 +195,57 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
             />
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button type="submit">Translate!</Button>
-            <Button type="button" onClick={() => setResults(null)}>
-              Reset results
-            </Button>
+            <div className="flex gap-x-2">
+              <Button type="submit">Translate!</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSheetOpen(true)}
+              >
+                Load example
+              </Button>
+            </div>
+            <div className="flex gap-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.reset()}
+              >
+                Reset form
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResults(null)}
+              >
+                Reset results
+              </Button>
+            </div>
           </CardFooter>
         </Card>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="overflow-x-auto">
+            <SheetHeader>
+              <SheetTitle>Select example</SheetTitle>
+              {EXAMPLES.map((e) => (
+                <Button
+                  key={e.text}
+                  variant="outline"
+                  onClick={() => {
+                    form.setValue("text", e.text);
+                    form.setValue("source_language", e.source_language);
+                    form.setValue("target_language", e.target_language);
+                    form.setValue("shots", e.shots);
+                    setIsSheetOpen(false);
+                  }}
+                  className="h-auto overflow-hidden text-ellipsis text-wrap p-2"
+                >
+                  {e.text}
+                </Button>
+              ))}
+            </SheetHeader>
+          </SheetContent>
+        </Sheet>
       </form>
     </Form>
   );
