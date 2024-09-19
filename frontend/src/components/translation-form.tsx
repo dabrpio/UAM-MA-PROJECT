@@ -19,7 +19,14 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Card, CardContent, CardFooter, CardHeader } from "./ui/card";
+import { TranslationResult } from "./translation-result";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 
@@ -30,31 +37,34 @@ const formSchema = z
     text: z.string().min(2, {
       message: "Username must be at least 2 characters.",
     }),
-    sourceLanguage: languageEnum,
-    targetLanguage: languageEnum,
-    shots: z
-      .string()
-      .pipe(
-        z.coerce
-          .number()
-          .positive()
-          .max(20, { message: "Maximum number of shots is 20." }),
-      ),
+    source_language: languageEnum,
+    target_language: languageEnum,
+    shots: z.string().pipe(
+      z.coerce
+        .number()
+        .positive()
+        .max(20, { message: "Maximum number of shots is 20." })
+        .transform((arg) => arg.toString()),
+    ),
   })
   .superRefine((val, ctx) => {
-    if (val.sourceLanguage === val.targetLanguage) {
+    if (val.source_language === val.target_language) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Target language must be different from source language.",
         fatal: true,
-        path: ["targetLanguage"],
+        path: ["target_language"],
       });
     }
 
     return z.NEVER;
   });
 
-export function TranslationForm() {
+interface TranslatioFormProps {
+  setResults: React.Dispatch<React.SetStateAction<TranslationResult[] | null>>;
+}
+
+export function TranslationForm({ setResults }: TranslatioFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -63,9 +73,15 @@ export function TranslationForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
+    const params = new URLSearchParams(values).toString();
+    fetch(`${import.meta.env.VITE_BACKEND_URL}?${params}`)
+      .then((res) => res.json())
+      .then((data: TranslationResult[]) => {
+        setResults(data);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   }
 
   return (
@@ -73,13 +89,13 @@ export function TranslationForm() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
-            <h2 className="text-xl">Translation requirements</h2>
+            <CardTitle className="text-xl">Translation requirements</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-y-4">
             <div className="flex flex-1 gap-x-4">
               <FormField
                 control={form.control}
-                name="sourceLanguage"
+                name="source_language"
                 render={({ field }) => (
                   <FormItem className="flex-1">
                     <FormLabel>Source language</FormLabel>
@@ -106,7 +122,7 @@ export function TranslationForm() {
               />
               <FormField
                 control={form.control}
-                name="targetLanguage"
+                name="target_language"
                 render={({ field }) => (
                   <FormItem className="flex-1">
                     <FormLabel>Target language</FormLabel>
@@ -163,8 +179,11 @@ export function TranslationForm() {
               )}
             />
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex justify-between">
             <Button type="submit">Translate!</Button>
+            <Button type="button" onClick={() => setResults(null)}>
+              Reset results
+            </Button>
           </CardFooter>
         </Card>
       </form>
