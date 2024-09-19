@@ -248,6 +248,7 @@ export function TranslationForm({ setResults }: TranslatioFormProps) {
                   key={e.text}
                   variant="outline"
                   onClick={() => {
+                    form.reset();
                     form.setValue("text", e.text);
                     form.setValue("source_language", e.source_language);
                     form.setValue("target_language", e.target_language);
