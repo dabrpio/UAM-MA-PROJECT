@@ -1,73 +1,155 @@
-from typing import List, Literal, Dict
+from typing import Literal, Dict
 from dotenv import load_dotenv
-from os import getenv
 from openai import OpenAI
-from thefuzz import process
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from rapidfuzz import process, fuzz, utils
+from typing import Dict, Literal, TypedDict
+import subprocess
+
 
 load_dotenv()
-OPENAI_API_KEY=getenv('OPENAI_API_KEY')
-MODEL = "gpt-3.5-turbo"
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+LanguagePol = Literal["polski", "angielski"]
+LanguageEng = Literal["Polish", "English"]
+
+english_to_polish_mapping: dict[LanguageEng, LanguagePol] = {
+    "English": "angielski",
+    "Polish": "polski"
+}
+
+lang_to_filename: Dict[LanguagePol, str] = {
+    "angielski": "./data/train.en.txt",
+    "polski" : "./data/train.pl.txt"
+}
+
+CONTEXT = "Jesteś pomocnym bilingwalnym tłumaczem specjalizującym się w tłumaczeniach pomiędzy językiem polskim, a angielskim. Jako wynik zwracasz samo tłumaczenie."
+
+
+MODEL = "gpt-4o"
+client = OpenAI()
 app = FastAPI()
+
+origins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-def make_openai_api_call(context: str, prompt: str):
-  return client.chat.completions.create(
-      model=MODEL,
-      messages=[
-        { "role": "system", "content": context },
-        { "role": "user", "content": prompt }
-      ]
-    )
 
-Language = Literal['Polish','English']
+def make_openai_api_call(prompt: str):
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            { "role": "system", "content": CONTEXT },
+            { "role": "user", "content": prompt }
+        ]
+    )
+    return response.choices[0].message.content
+
+
+class TranslationExample(TypedDict):
+    text: str
+    line: str
+    confidence: float
+    translation: str
+
+
+def find_n_fuzzy_matches(
+        text: str, 
+        source_filename: str, 
+        n: int
+    ) -> list[tuple[str,float, int]]:
+    with open(source_filename, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        matches = process.extract(
+            query=text, 
+            choices=lines, 
+            scorer=fuzz.ratio, 
+            limit=n, 
+            processor=utils.default_process
+        )
+        
+        return matches
+
+
+def read_line_n(filename: str, n: int):
+    content = subprocess.run(
+        args=['sed', '-n', f'{n}p', filename], 
+        capture_output=True, 
+        text=True
+    )
+    return content.stdout
+
+
+def bind_fuzzy_matches_with_translations(
+    fuzzy_matches: list[tuple[str,float, int]], 
+    target_filename: str
+    ) -> list[TranslationExample]:
+    result = []
+    for text, score, line in fuzzy_matches:
+        result.append(TranslationExample({
+            "text": text.strip(),
+            "score": round(score, 2),
+            "translation": read_line_n(
+                filename=target_filename, 
+                n=line + 1
+            ).strip()
+        }))
+    return result
+
+
+def translate_batch(text: str, source_language: LanguagePol, target_language: LanguagePol, n_shots: list[int]):
+    translations = []
+
+    if max(n_shots) > 1:
+        matches = find_n_fuzzy_matches(
+            text=text, 
+            source_filename=lang_to_filename[source_language],
+            n=max(n_shots)
+        )
+        matches_with_translations = bind_fuzzy_matches_with_translations(
+            fuzzy_matches=matches,
+            target_filename=lang_to_filename[target_language]
+        )
+    
+    for n in n_shots:
+        if n == 0:
+            prompt = f"Przetłumacz z języka {source_language}ego na język {target_language}.\n" + \
+                    f"{source_language}: {text}\n" + \
+                    f"{target_language}:"
+            t = make_openai_api_call(prompt)
+            translations.append({"translation": t, "few_shots": None})
+        else:
+            def create_shot(match: str):
+                return f"{source_language}: {match.get('text')}\n" + \
+                    f"{target_language}: {match.get('translation')}"
+
+            prompt = f"Przetłumacz zdania z języka {source_language}ego" + \
+                    f"na język {target_language}, biorąc pod uwagę " + \
+                    f"przykłady tłumaczeń zdań podobnych.\n" + \
+                    "\n".join([create_shot(m) for m in matches_with_translations[:n]]) + \
+                    f"\n{source_language}: {text}" + \
+                    f"\n{target_language}: "
+            t = make_openai_api_call(prompt)
+            translations.append({"translation": t, "few_shots": matches_with_translations})
+    return translations
+
+
+
 
 @app.get("/")
-async def translate(source_language: Language, target_language: Language, text: str):
-  dataset_filenames: Dict[Language, str] = {
-    'English': 'data-en.txt',
-    'Polish': 'data-pl.txt'
-  }
+async def translate(source_language: LanguageEng, target_language: LanguageEng, text: str, shots: int):
+    source_language = english_to_polish_mapping[source_language]
+    target_language = english_to_polish_mapping[target_language]
+    
+    result = translate_batch(text, source_language, target_language, [0, shots])
 
-  with open('data/' + dataset_filenames[source_language], 'r') as file:
-    dataset_source_lang = file.readlines()
-
-  with open('data/' + dataset_filenames[target_language], 'r') as file:
-    dataset_target_lang = file.readlines()
-
-
-  fuzzy_matches = process.extract(text, dataset_source_lang, limit=5)
-  dictionary: List[Dict[str, str]]  = []
-  for match in fuzzy_matches:
-    index = dataset_source_lang.index(match[0])
-    dictionary.append({
-      'source': match[0],
-      'target': dataset_target_lang[index]
-    })
-  key_value_strings = [f"{obj['source'].strip()} => {obj['target'].strip()}" for obj in dictionary]
-  shots = '\n'.join(key_value_strings)
-
-  context = f"You are a translator, skilled in translation between {source_language} and {target_language} languages."
-  zero_shots_translation = make_openai_api_call(context, f"Translate {text} from {source_language} to {target_language}.")
-  few_shots_translation = make_openai_api_call(context, 
-f"""
-Complete the translations of the following sentences from {source_language} to {target_language} taking into consideration already translated examples:
-{shots}
-{text} =>
-"""
-  )
-  
-  return {
-    'zero_shots_translation': zero_shots_translation.choices[0].message.content,
-    'few_shots_translation': few_shots_translation.choices[0].message.content,
-    'few_shots': dictionary
-  }
+    return result
