@@ -107,42 +107,43 @@ def bind_fuzzy_matches_with_translations(
 
 
 def translate_batch(text: str, source_language: LanguagePol, target_language: LanguagePol, n_shots: list[int]):
+    source_filename = lang_to_filename[source_language]
+    target_filename = lang_to_filename[target_language]
     translations = []
 
     if max(n_shots) > 1:
         matches = find_n_fuzzy_matches(
             text=text, 
-            source_filename=lang_to_filename[source_language],
+            source_filename=source_filename,
             n=max(n_shots)
         )
-        matches_with_translations = bind_fuzzy_matches_with_translations(
+        translation_examples = bind_fuzzy_matches_with_translations(
             fuzzy_matches=matches,
-            target_filename=lang_to_filename[target_language]
+            target_filename=target_filename
         )
-    
+
+    def create_shot(example: TranslationExample):
+        return f"{source_language}: {example['text']}\n" + \
+               f"{target_language}: {example['translation']}"
+        
     for n in n_shots:
         if n == 0:
+            few_shots = None
             prompt = f"Przetłumacz z języka {source_language}ego na język {target_language}.\n" + \
                     f"{source_language}: {text}\n" + \
                     f"{target_language}:"
-            t = make_openai_api_call(prompt)
-            translations.append({"translation": t, "few_shots": None})
         else:
-            def create_shot(match: str):
-                return f"{source_language}: {match.get('text')}\n" + \
-                    f"{target_language}: {match.get('translation')}"
-
+            few_shots = translation_examples[:n]
             prompt = f"Przetłumacz zdania z języka {source_language}ego" + \
                     f"na język {target_language}, biorąc pod uwagę " + \
                     f"przykłady tłumaczeń zdań podobnych.\n" + \
-                    "\n".join([create_shot(m) for m in matches_with_translations[:n]]) + \
+                    "\n".join([create_shot(s) for s in few_shots]) + \
                     f"\n{source_language}: {text}" + \
                     f"\n{target_language}: "
-            t = make_openai_api_call(prompt)
-            translations.append({"translation": t, "few_shots": matches_with_translations})
+            
+        translation = make_openai_api_call(CONTEXT, prompt)
+        translations.append({"translation": translation, "few_shots": few_shots})
     return translations
-
-
 
 
 @app.get("/")
