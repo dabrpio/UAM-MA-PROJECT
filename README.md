@@ -63,8 +63,8 @@ cd frontend
 # Install the dependencies for frontend:
 npm install
 
-# Create .env file based on .env.template and fill required environment variables:
-cp .env.template .env
+# Create .env.local file based on .env.local.template and fill required environment variables:
+cp .env.local.template .env.local
 
 # Start the frontend:
 npm run dev
