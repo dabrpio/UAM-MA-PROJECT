@@ -1,9 +1,7 @@
-from typing import Literal, Dict
 from dotenv import load_dotenv
 from openai import OpenAI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from rapidfuzz import process, fuzz, utils
 from typing import Dict, Literal, TypedDict
 import subprocess
