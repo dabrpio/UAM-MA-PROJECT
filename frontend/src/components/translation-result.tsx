@@ -22,8 +22,9 @@ export const TranslationResult = ({ result }: TranslationResultProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">
-          {shots}-shot translation: {result.translation}
+        <CardTitle>
+          <div className="text-lg">{shots}-shot translation:</div>
+          <div className="text-md font-normal">{result.translation}</div>
         </CardTitle>
       </CardHeader>
 

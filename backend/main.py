@@ -139,7 +139,7 @@ def translate_batch(text: str, source_language: LanguagePol, target_language: La
                     f"\n{source_language}: {text}" + \
                     f"\n{target_language}: "
             
-        translation = make_openai_api_call(CONTEXT, prompt)
+        translation = make_openai_api_call(prompt)
         translations.append({"translation": translation, "few_shots": few_shots})
     return translations
 
